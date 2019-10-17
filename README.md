@@ -4,6 +4,11 @@
 > 실습환경은 IBM Cloud의 Kubernetes Cluster 를 사용합니다.   
 > Jenkins는 Kubernetes 환경에 사전 설치되어 있는 형태로 Pipeline 작성 위주로 실습합니다.   
 
+## 참조 링크
+* Kubernetes에 Jenkins 설치   
+  https://developer.ibm.com/tutorials/configure-a-cicd-pipeline-with-jenkins-on-kubernetes/
+* Jenkins 설정 (Kubernetes plugin)   
+  https://www.oracle.com/webfolder/technetwork/tutorials/obe/oci/configure_jenkins_kubernetes_plugin/configurekubernetesplugin.html
 ## Github 프로젝트 가져오기
 실습을 위해서 대상 애플리케이션을 각 개인 계정의 github로 fork 합니다. 
 실습 대상 애플리케이션은 Spring Boot sample 중 하나 입니다.
