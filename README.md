@@ -148,3 +148,69 @@ podTemplate(label: label, containers: [
   }
 }
 ~~~
+
+~~~
+def label = "worker-${UUID.randomUUID().toString()}"
+
+podTemplate(label: label, containers: [
+  containerTemplate(name: 'gradle', image: 'gradle:4.5.1-jdk8', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'docker', image: 'docker:dind', command: 'dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay', ttyEnabled: true, alwaysPullImage: true, privileged: true),
+  containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl:v1.8.8', command: 'cat', ttyEnabled: true)
+//  containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
+]) {
+//volumes: [
+	//hostPathVolume(mountPath: '/var/run', hostPath: '/run'),
+	//hostPathVolume(mountPath: '/var/lib/docker', hostPath: '/var/run/docker')
+//]) {
+  node(label) {
+		def myRepo = checkout scm
+    def gitCommit = myRepo.GIT_COMMIT
+    def gitBranch = myRepo.GIT_BRANCH
+    def shortGitCommit = "${gitCommit[0..10]}"
+    def previousGitCommit = sh(script: "git rev-parse ${gitCommit}~", returnStdout: true)
+
+    stage('Build') {
+      try {
+        container('gradle') {
+					sh "pwd"
+					sh "gradle -b complete/build.gradle build"
+          //sh "sudo echo 'GIT_BRANCH=${gitBranch}' >> /etc/environment"
+          //sh "sudo echo 'GIT_COMMIT=${gitCommit}' >> /etc/environment"
+        }
+      }
+      catch (exc) {
+        println "Failed to test - ${currentBuild.fullDisplayName}"
+        throw(exc)
+      }
+		}
+		stage('Dockerizing') {
+			try{
+				container('docker') {
+					withCredentials([[$class: 'UsernamePasswordMultiBinding',
+					  credentialsId: 'dockerhub',
+					  usernameVariable: 'DOCKER_HUB_USER',
+					  passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
+					  sh """
+					    docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
+					    docker build -t mjkong/web-sample .
+					    docker push mjkong/web-sample
+				    """
+					}
+				}
+      }
+			catch (exc) {
+				println "Failed to build - ${currentBuild.fullDisplayName}"
+				throw(exc)
+			}
+		}
+		stage('Run kubectl') {
+      container('kubectl') {
+        sh """
+					kubectl apply -f ./k8s/service.yaml --validate=false
+					kubectl apply -f ./k8s/deployment.yaml --validate=false
+				"""
+      }
+    }
+  }
+}
+~~~
